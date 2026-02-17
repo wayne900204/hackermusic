@@ -1,0 +1,20 @@
+# GUI 框架
+PyQt6>=6.5.0
+
+# 音訊引擎
+pyaudiowpatch>=0.2.12.5
+numpy>=1.21.0
+sounddevice>=0.4.5
+
+# 伺服器與 WebSocket (核心修正)
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+websockets>=11.0
+httptools>=0.5.0
+
+# 輔助工具
+qrcode[pil]>=7.3
+pillow>=9.0.0
+
+# 打包工具
+pyinstaller>=5.13.0

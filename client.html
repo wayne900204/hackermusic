@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>Hacker Music</title>
+    <style>
+        body { font-family: sans-serif; background: #0f0f1a; color: white; text-align: center; padding: 50px 20px; }
+        .card { background: rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 30px; }
+        button { width: 100%; padding: 18px; font-weight: bold; border-radius: 12px; background: #3b82f6; color: white; border: none; }
+        audio { display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🔊 無損專屬通道</h2>
+        <div id="status">等待連線...</div>
+        <button id="btn" onclick="toggle()">▶ 啟動音訊</button>
+    </div>
+    <audio id="mainAudio" playsinline></audio>
+    <script>
+        let audioCtx, ws, nextPlayTime = 0, isPlaying = false, sampleRate = 48000;
+        let streamDest;
+        const mainAudio = document.getElementById("mainAudio");
+        const statusEl = document.getElementById("status");
+
+        async function cleanup() {
+            isPlaying = false;
+            if (ws) { ws.onclose = null; ws.close(); ws = null; }
+            if (audioCtx) { if (audioCtx.state !== 'closed') await audioCtx.close(); audioCtx = null; }
+            if (mainAudio) { mainAudio.pause(); mainAudio.srcObject = null; }
+            nextPlayTime = 0;
+        }
+
+        window.onbeforeunload = () => { cleanup(); };
+
+        async function initAudio() {
+            await cleanup();
+            try {
+                const res = await fetch('/config');
+                const config = await res.json();
+                sampleRate = config.sample_rate;
+            } catch(e) {}
+
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: sampleRate, latencyHint: 'interactive' });
+            streamDest = audioCtx.createMediaStreamDestination();
+            mainAudio.srcObject = streamDest.stream;
+            await mainAudio.play();
+
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({ title: 'Ultra Streamer' });
+            }
+
+            isPlaying = true;
+            document.getElementById("btn").innerText = "⬛ 停止播放";
+            connectWebSocket();
+        }
+
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
+            ws.binaryType = "arraybuffer";
+            ws.onmessage = (event) => {
+                if (!isPlaying || !audioCtx) return;
+                let int16Array = new Int16Array(event.data);
+                let audioBuffer = audioCtx.createBuffer(2, int16Array.length / 2, sampleRate);
+                for (let i = 0; i < 2; i++) {
+                    let channelData = audioBuffer.getChannelData(i);
+                    for (let j = 0; j < audioBuffer.length; j++) channelData[j] = int16Array[j * 2 + i] / 32768.0;
+                }
+                let source = audioCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(streamDest);
+                let now = audioCtx.currentTime;
+                if (nextPlayTime < now || (nextPlayTime - now) > 0.5) nextPlayTime = now + 0.06;
+                source.start(nextPlayTime);
+                nextPlayTime += audioBuffer.duration;
+            };
+        }
+
+        function toggle() { if (isPlaying) cleanup(); else initAudio(); }
+    </script>
+</body>
+</html>
