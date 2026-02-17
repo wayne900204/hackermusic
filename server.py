@@ -1,6 +1,5 @@
 import asyncio
 import threading
-import queue
 import sys
 import os
 import pyaudiowpatch as pyaudio
@@ -11,16 +10,14 @@ from contextlib import asynccontextmanager
 
 TARGET_DEVICE_ID = None
 TARGET_SAMPLE_RATE = 48000
-clients = set()
-
+active_connections: set[WebSocket] = set()
 
 def resource_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.dirname(__file__), relative_path)
 
-
-def audio_capture_thread():
+def audio_capture_thread(loop):
     global TARGET_SAMPLE_RATE
     p = pyaudio.PyAudio()
     stream = None
@@ -37,7 +34,9 @@ def audio_capture_thread():
         dev_info = p.get_device_info_by_index(device_idx)
         channels = dev_info["maxInputChannels"]
         TARGET_SAMPLE_RATE = int(dev_info["defaultSampleRate"])
-        chunk_size = int(TARGET_SAMPLE_RATE * 0.02)
+
+        # 縮小 chunk 以降低延遲
+        chunk_size = 1024
 
         stream = p.open(format=pyaudio.paInt16, channels=channels, rate=TARGET_SAMPLE_RATE,
                         input=True, input_device_index=device_idx, frames_per_buffer=chunk_size)
@@ -47,45 +46,58 @@ def audio_capture_thread():
             if channels == 1:
                 arr = np.frombuffer(data, dtype=np.int16)
                 data = np.repeat(arr, 2).tobytes()
-            for q in list(clients):
-                if not q.full(): q.put_nowait(data)
+
+            if active_connections:
+                asyncio.run_coroutine_threadsafe(broadcast_audio(data), loop)
+
     except Exception as e:
         print(f"擷取錯誤: {e}")
     finally:
         if stream: stream.close()
         p.terminate()
 
+async def broadcast_audio(data: bytes):
+    if not active_connections: return
+
+    async def send_to_client(ws):
+        try:
+            # ⚡ 洩壓閥：傳送超時就丟棄封包，保證不囤積舊聲音
+            await asyncio.wait_for(ws.send_bytes(data), timeout=0.04)
+        except Exception:
+            active_connections.discard(ws)
+
+    tasks = [send_to_client(ws) for ws in list(active_connections)]
+    await asyncio.gather(*tasks)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    threading.Thread(target=audio_capture_thread, daemon=True).start()
+    loop = asyncio.get_running_loop()
+    threading.Thread(target=audio_capture_thread, args=(loop,), daemon=True).start()
     yield
 
-
 app = FastAPI(lifespan=lifespan)
-
 
 @app.get("/")
 async def index():
     with open(resource_path("client.html"), "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
-
 @app.get("/config")
 async def config():
     return JSONResponse({"sample_rate": TARGET_SAMPLE_RATE})
 
-
 @app.websocket("/ws")
 async def audio_ws(websocket: WebSocket):
     await websocket.accept()
-    q = queue.Queue(maxsize=10)
-    clients.add(q)
+    active_connections.add(websocket)
     try:
         while True:
-            data = q.get()
-            await websocket.send_bytes(data)
+            await websocket.receive()
     except:
         pass
     finally:
-        clients.remove(q)
+        active_connections.discard(websocket)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="error")

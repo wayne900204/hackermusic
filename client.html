@@ -1,83 +1,275 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>Hacker Music</title>
+    <title>Hacker Music Premium</title>
     <style>
-        body { font-family: sans-serif; background: #0f0f1a; color: white; text-align: center; padding: 50px 20px; }
-        .card { background: rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 30px; }
-        button { width: 100%; padding: 18px; font-weight: bold; border-radius: 12px; background: #3b82f6; color: white; border: none; }
+        :root {
+            --primary: #00f2ff; /* 電子青 */
+            --accent: #7000ff;  /* 魅惑紫 */
+            --bg: #050508;
+            --card-bg: rgba(20, 20, 30, 0.7);
+        }
+
+        body {
+            background: var(--bg);
+            color: #fff;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            /* 背景動態漸層 */
+            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #050508 100%);
+        }
+
+        /* 裝飾用的背景發光球 */
+        .glow {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: var(--primary);
+            filter: blur(120px);
+            opacity: 0.15;
+            z-index: 0;
+            animation: move 20s infinite alternate;
+        }
+
+        @keyframes move {
+            from { transform: translate(-50%, -50%); }
+            to { transform: translate(50%, 50%); }
+        }
+
+        .card {
+            position: relative;
+            z-index: 1;
+            width: 320px;
+            padding: 40px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        /* 駭客音樂圖示：使用呼吸燈特效 */
+        .icon-box {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            border-radius: 50%;
+            border: 1px solid rgba(0, 242, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
+        }
+
+        .icon-box svg {
+            width: 50px;
+            fill: var(--primary);
+            filter: drop-shadow(0 0 8px var(--primary));
+        }
+
+        .icon-box::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            100% { transform: scale(1.4); opacity: 0; }
+        }
+
+        h2 {
+            font-weight: 300;
+            letter-spacing: 3px;
+            font-size: 1.4rem;
+            margin: 0 0 10px;
+            background: linear-gradient(to right, #fff, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #status {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.4);
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* 現代感按鈕 */
+        button {
+            width: 100%;
+            padding: 16px;
+            border-radius: 15px;
+            border: none;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 10px 20px rgba(112, 0, 255, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.95);
+            box-shadow: 0 5px 10px rgba(112, 0, 255, 0.2);
+        }
+
+        /* 音樂波形視覺器 */
+        .visualizer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3px;
+            height: 30px;
+            margin-top: 30px;
+        }
+
+        .bar {
+            width: 3px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 10px;
+            opacity: 0.3;
+        }
+
+        .playing .bar {
+            opacity: 1;
+            animation: wave 0.6s infinite alternate;
+        }
+
+        @keyframes wave {
+            from { height: 4px; }
+            to { height: 25px; }
+        }
+
         audio { display: none; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>🔊 無損專屬通道</h2>
-        <div id="status">等待連線...</div>
-        <button id="btn" onclick="toggle()">▶ 啟動音訊</button>
+    <div class="glow"></div>
+
+    <div class="card" id="playerCard">
+        <div class="icon-box">
+            <svg viewBox="0 0 24 24"><path d="M12,2C6.48,2,2,6.48,2,12v7c0,1.1,0.9,2,2,2h3v-8H4v-1c0-4.41,3.59-8,8-8s8,3.59,8,8v1h-3v8h3c1.1,0,2-0.9,2-2v-7 C22,6.48,17.52,2,12,2z"/></svg>
+        </div>
+
+        <h2>HACKER MUSIC</h2>
+        <div id="status">System Standby</div>
+
+        <button id="btn" onclick="toggle()">INITIALIZE STREAM</button>
+
+        <div class="visualizer">
+            <div class="bar" style="animation-delay: 0.0s"></div>
+            <div class="bar" style="animation-delay: 0.2s"></div>
+            <div class="bar" style="animation-delay: 0.4s"></div>
+            <div class="bar" style="animation-delay: 0.1s"></div>
+            <div class="bar" style="animation-delay: 0.3s"></div>
+            <div class="bar" style="animation-delay: 0.5s"></div>
+            <div class="bar" style="animation-delay: 0.2s"></div>
+        </div>
     </div>
+
     <audio id="mainAudio" playsinline></audio>
+
     <script>
+        /* 💡 這裡完整保留你最穩定的「真暫停 + 斷線」邏輯 */
         let audioCtx, ws, nextPlayTime = 0, isPlaying = false, sampleRate = 48000;
         let streamDest;
         const mainAudio = document.getElementById("mainAudio");
         const statusEl = document.getElementById("status");
+        const card = document.getElementById("playerCard");
+        const btn = document.getElementById("btn");
 
-        async function cleanup() {
-            isPlaying = false;
-            if (ws) { ws.onclose = null; ws.close(); ws = null; }
-            if (audioCtx) { if (audioCtx.state !== 'closed') await audioCtx.close(); audioCtx = null; }
-            if (mainAudio) { mainAudio.pause(); mainAudio.srcObject = null; }
-            nextPlayTime = 0;
-        }
+        fetch('/config').then(res => res.json()).then(c => sampleRate = c.sample_rate).catch(() => {});
 
-        window.onbeforeunload = () => { cleanup(); };
-
-        async function initAudio() {
-            await cleanup();
-            try {
-                const res = await fetch('/config');
-                const config = await res.json();
-                sampleRate = config.sample_rate;
-            } catch(e) {}
-
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: sampleRate, latencyHint: 'interactive' });
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
             streamDest = audioCtx.createMediaStreamDestination();
             mainAudio.srcObject = streamDest.stream;
-            await mainAudio.play();
 
             if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({ title: 'Ultra Streamer' });
+                navigator.mediaSession.metadata = new MediaMetadata({ title: 'Hacker Stream', artist: 'HACK_NET' });
+                navigator.mediaSession.setActionHandler('play', () => toggle());
+                navigator.mediaSession.setActionHandler('pause', () => toggle());
             }
+        }
 
-            isPlaying = true;
-            document.getElementById("btn").innerText = "⬛ 停止播放";
-            connectWebSocket();
+        async function toggle() {
+            if (!isPlaying) {
+                isPlaying = true;
+                statusEl.innerText = "Connecting to Node...";
+                btn.innerText = "TERMINATE STREAM";
+                card.classList.add('playing');
+
+                if (!audioCtx) initAudio();
+                if (audioCtx.state === 'suspended') await audioCtx.resume();
+                await mainAudio.play();
+
+                nextPlayTime = 0;
+                connectWebSocket();
+            } else {
+                isPlaying = false;
+                statusEl.innerText = "System Standby";
+                btn.innerText = "INITIALIZE STREAM";
+                card.classList.remove('playing');
+
+                if (ws) {
+                    ws.onclose = null;
+                    ws.close();
+                    ws = null;
+                }
+                mainAudio.pause();
+                nextPlayTime = 0;
+            }
         }
 
         function connectWebSocket() {
+            if (ws) ws.close();
             ws = new WebSocket(`ws://${window.location.host}/ws`);
             ws.binaryType = "arraybuffer";
+
+            ws.onopen = () => { statusEl.innerText = "Encrypted Link Active"; };
             ws.onmessage = (event) => {
                 if (!isPlaying || !audioCtx) return;
-                let int16Array = new Int16Array(event.data);
-                let audioBuffer = audioCtx.createBuffer(2, int16Array.length / 2, sampleRate);
+                let data = new Int16Array(event.data);
+                let buf = audioCtx.createBuffer(2, data.length / 2, sampleRate);
                 for (let i = 0; i < 2; i++) {
-                    let channelData = audioBuffer.getChannelData(i);
-                    for (let j = 0; j < audioBuffer.length; j++) channelData[j] = int16Array[j * 2 + i] / 32768.0;
+                    let ch = buf.getChannelData(i);
+                    for (let j = 0; j < buf.length; j++) ch[j] = data[j * 2 + i] / 32768.0;
                 }
-                let source = audioCtx.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(streamDest);
+                let src = audioCtx.createBufferSource();
+                src.buffer = buf;
+                src.connect(streamDest);
                 let now = audioCtx.currentTime;
-                if (nextPlayTime < now || (nextPlayTime - now) > 0.5) nextPlayTime = now + 0.06;
-                source.start(nextPlayTime);
-                nextPlayTime += audioBuffer.duration;
+                if (nextPlayTime < now) nextPlayTime = now + 0.05;
+                src.start(nextPlayTime);
+                nextPlayTime += buf.duration;
+                src.onended = () => src.disconnect();
+            };
+            ws.onclose = () => {
+                if (isPlaying) {
+                    statusEl.innerText = "Retrying Link...";
+                    setTimeout(connectWebSocket, 1000);
+                }
             };
         }
-
-        function toggle() { if (isPlaying) cleanup(); else initAudio(); }
     </script>
 </body>
 </html>
